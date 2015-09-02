@@ -39,14 +39,14 @@ public class AvroFileReaderWriterFactoryTest {
         mFactory = new AvroFileReaderWriterFactory();
     }
 
-    final String JSON = "{\"name\": \"Alyssa\", \"favorite_number\": 256}";
-    final String JSON2 = "{\"name\": \"Ben\", \"favorite_number\": 7, \"favorite_color\": \"red\"}";
+    final String JSON = "{\"integer1\": 1, \"long1\": 1000, \"string1\": \"thestring1\", \"timestamp\":\"2015-01-01 12:00:00\"}";
+    final String JSON2 = "{\"integer1\": 2, \"long1\": 1001, \"string1\": \"thestring2\", \"timestamp\":\"2015-01-01 13:00:00\"}";
 
     @Test
     public void testReadWriteRoundTrip() throws Exception {
         AvroFileReaderWriterFactory factory = new AvroFileReaderWriterFactory();
         LogFilePath tempLogFilePath = new LogFilePath(Files.createTempDir().toString(),
-                "example",
+                "test",
                 new String[]{"part-1"},
                 0,
                 1,
@@ -73,13 +73,28 @@ public class AvroFileReaderWriterFactoryTest {
 
         KeyValue kvout = fileReader.next();
         System.out.println(new String(kvout.getValue()));
-//        assertEquals(kv1.getKey(), kvout.getKey());
-//        assertArrayEquals(kv1.getValue(), kvout.getValue());
+     //   assertEquals(kv1.getKey(), kvout.getKey());
+     //   assertArrayEquals(kv1.getValue(), kvout.getValue());
         kvout = fileReader.next();
         System.out.println(new String(kvout.getValue()));
-//        assertEquals(kv2.getKey(), kvout.getKey());
-//        assertArrayEquals(kv2.getValue(), kvout.getValue());
+     //   assertEquals(kv2.getKey(), kvout.getKey());
+     //   assertArrayEquals(kv2.getValue(), kvout.getValue());
     }
 
-
+    @Test
+    public void testClassCastIssue() throws Exception {
+        AvroFileReaderWriterFactory factory = new AvroFileReaderWriterFactory();
+        LogFilePath tempLogFilePath = new LogFilePath(Files.createTempDir().toString(),
+                "test",
+                new String[]{"part-1"},
+                0,
+                1,
+                0,
+                ".avro"
+        );
+        FileWriter fileWriter = factory.BuildFileWriter(tempLogFilePath, null);
+        KeyValue kv1 = (new KeyValue(23232, JSON.getBytes()));
+        fileWriter.write(kv1);
+        fileWriter.close();
+    }
 }

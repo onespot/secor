@@ -8,6 +8,7 @@ import com.pinterest.secor.io.FileWriter;
 import com.pinterest.secor.io.KeyValue;
 import net.minidev.json.JSONObject;
 import net.minidev.json.JSONValue;
+import org.apache.avro.AvroTypeException;
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileReader;
 import org.apache.avro.file.DataFileWriter;
@@ -16,6 +17,7 @@ import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.DatumReader;
+import org.apache.avro.io.Encoder;
 import org.apache.hadoop.io.compress.CompressionCodec;
 
 import java.io.*;
@@ -78,8 +80,27 @@ public class AvroFileReaderWriterFactory implements FileReaderWriterFactory {
 
         AvroWriter(Schema schema, Path file) throws IOException {
             this.schema = schema;
-            final GenericDatumWriter<GenericRecord> datumWriter = new GenericDatumWriter<GenericRecord>(schema);
-
+            /**
+             * We override the write method of the GenericDatumWriter as it doesnt support casting of ints to longs
+             * for some reason
+             */
+            final GenericDatumWriter<GenericRecord> datumWriter = new GenericDatumWriter<GenericRecord>(schema) {
+                /** Called to write data.*/
+                protected void write(Schema schema, Object datum, Encoder out)
+                        throws IOException {
+                    try {
+                        switch (schema.getType()) {
+                            case LONG:
+                                out.writeLong(((Number) datum).longValue());
+                                break;
+                            default:
+                                super.write(schema, datum, out);
+                        }
+                    } catch (NullPointerException e) {
+                        throw npe(e, " of " + schema.getFullName());
+                    }
+                }
+            };
             Files.createDirectories(file.getParent());
             final OutputStream out = Files.newOutputStream(file);
             meteredOut = new CountingOutputStream(out);
