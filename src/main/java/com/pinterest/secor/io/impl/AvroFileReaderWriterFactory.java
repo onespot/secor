@@ -90,8 +90,15 @@ public class AvroFileReaderWriterFactory implements FileReaderWriterFactory {
                         throws IOException {
                     try {
                         switch (schema.getType()) {
+
                             case LONG:
                                 out.writeLong(((Number) datum).longValue());
+                                break;
+                            case DOUBLE:
+                                out.writeDouble(((Number) datum).doubleValue());
+                                break;
+                            case FLOAT:
+                                out.writeFloat(((Number) datum).floatValue());
                                 break;
                             default:
                                 super.write(schema, datum, out);
