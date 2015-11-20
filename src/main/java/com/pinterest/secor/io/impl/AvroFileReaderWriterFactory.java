@@ -8,7 +8,6 @@ import com.pinterest.secor.io.FileWriter;
 import com.pinterest.secor.io.KeyValue;
 import net.minidev.json.JSONObject;
 import net.minidev.json.JSONValue;
-import org.apache.avro.AvroTypeException;
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileReader;
 import org.apache.avro.file.DataFileWriter;
@@ -21,6 +20,8 @@ import org.apache.avro.io.Encoder;
 import org.apache.hadoop.io.compress.CompressionCodec;
 
 import java.io.*;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -31,22 +32,18 @@ import java.util.Map;
  */
 public class AvroFileReaderWriterFactory implements FileReaderWriterFactory {
 
+    private SchemaReader schemaReader = new SchemaReader();
+
     @Override
     public FileReader BuildFileReader(LogFilePath logFilePath, CompressionCodec codec) throws Exception {
-        Schema schema = getSchemaForTopic(logFilePath.getTopic());
+        Schema schema = schemaReader.getSchemaForTopic(logFilePath.getTopic());
         return new AvroReader(schema, Paths.get(logFilePath.getLogFilePath()));
     }
 
     @Override
     public FileWriter BuildFileWriter(LogFilePath logFilePath, CompressionCodec codec) throws Exception {
-        Schema schema = getSchemaForTopic(logFilePath.getTopic());
+        Schema schema = schemaReader.getSchemaForTopic(logFilePath.getTopic());
         return new AvroWriter(schema, Paths.get(logFilePath.getLogFilePath()));
-    }
-
-    private static final Schema getSchemaForTopic(String topic) throws IOException {
-        String filename = "/" + topic + ".avsc";
-        InputStream schemaIn = AvroFileReaderWriterFactory.class.getResourceAsStream(filename);
-        return new Schema.Parser().parse(schemaIn);
     }
 
     private static class AvroReader implements FileReader {
@@ -140,6 +137,43 @@ public class AvroFileReaderWriterFactory implements FileReaderWriterFactory {
         @Override
         public void close() throws IOException {
             dataFileWriter.close();
+        }
+    }
+
+    static class SchemaReader {
+        //TODO: get out of properties
+        private static final String REGISTRY_HOST="ec2-54-226-76-157.compute-1.amazonaws.com";
+        private static final int REGISTRY_PORT=8081;
+        private final String schemaRegsitryUrl = "http://" + REGISTRY_HOST + ":" + REGISTRY_PORT;
+
+        public final Schema getSchemaForTopic(String topic) throws IOException {
+            //TODO: always use latest version?
+            String topicPath = "/subjects/" + topic + "/versions/latest";
+            return new Schema.Parser().parse(getSchemaFromSchemaRegistry(topicPath));
+        }
+
+        private String getSchemaFromSchemaRegistry(String topicPath) throws IOException {
+            HttpURLConnection connection = null;
+            try {
+                URL url = new URL(schemaRegsitryUrl + topicPath);
+                connection = (HttpURLConnection) url.openConnection();
+                connection.setRequestProperty("Content-Type", "application/vnd.schemaregistry.v1+json");
+                connection.setRequestProperty("Accept", "*/*");
+                // Get Response.
+                InputStream inputStream = connection.getInputStream();
+                BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+                Map response = (Map) JSONValue.parse(reader);
+                if (response.containsKey("schema")) {
+                    return response.get("schema").toString();
+                } else {
+                    throw new RuntimeException("No schema found");
+                }
+            } catch (IOException exception) {
+                if (connection != null) {
+                    connection.disconnect();
+                }
+                throw exception;
+            }
         }
     }
 }

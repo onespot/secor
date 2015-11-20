@@ -21,22 +21,34 @@ import com.pinterest.secor.common.LogFilePath;
 import com.pinterest.secor.io.FileReader;
 import com.pinterest.secor.io.FileWriter;
 import com.pinterest.secor.io.KeyValue;
+import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileReader;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.DatumReader;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.io.File;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 public class AvroFileReaderWriterFactoryTest {
     private AvroFileReaderWriterFactory mFactory;
 
     public void setUp() throws Exception {
         mFactory = new AvroFileReaderWriterFactory();
+    }
+
+    @Test
+    @Ignore("Integration test relies on specific server/schema in production")
+    public void testSchemaReader() throws Exception {
+        AvroFileReaderWriterFactory.SchemaReader schemaReader =
+                new AvroFileReaderWriterFactory.SchemaReader();
+        Schema schema = schemaReader.getSchemaForTopic("inbox_request");
+        assertNotNull(schema);
     }
 
     final String JSON = "{\"integer1\": 1, \"long1\": 1000, \"string1\": \"thestring1\", \"timestamp\":\"2015-01-01 12:00:00\"}";
