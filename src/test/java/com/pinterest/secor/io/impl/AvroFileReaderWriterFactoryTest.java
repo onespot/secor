@@ -42,15 +42,6 @@ public class AvroFileReaderWriterFactoryTest {
         mFactory = new AvroFileReaderWriterFactory();
     }
 
-    @Test
-    @Ignore("Integration test relies on specific server/schema in production")
-    public void testSchemaReader() throws Exception {
-        AvroFileReaderWriterFactory.SchemaReader schemaReader =
-                new AvroFileReaderWriterFactory.SchemaReader();
-        Schema schema = schemaReader.getSchemaForTopic("inbox_request");
-        assertNotNull(schema);
-    }
-
     final String JSON = "{\"integer1\": 1, \"long1\": 1000, \"string1\": \"thestring1\", \"timestamp\":\"2015-01-01 12:00:00\"}";
     final String JSON2 = "{\"integer1\": 2, \"long1\": 1001, \"string1\": \"thestring2\", \"timestamp\":\"2015-01-01 13:00:00\"}";
 
