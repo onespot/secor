@@ -266,12 +266,12 @@ public class SecorConfig {
         }
     }
 
-    private String getString(String name) {
+    public String getString(String name) {
         checkProperty(name);
         return mProperties.getString(name);
     }
 
-    private int getInt(String name) {
+    public int getInt(String name) {
         checkProperty(name);
         return mProperties.getInt(name);
     }

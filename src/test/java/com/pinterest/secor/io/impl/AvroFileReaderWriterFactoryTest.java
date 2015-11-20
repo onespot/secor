@@ -18,16 +18,20 @@ package com.pinterest.secor.io.impl;
 
 import com.google.common.io.Files;
 import com.pinterest.secor.common.LogFilePath;
+import com.pinterest.secor.common.SecorConfig;
 import com.pinterest.secor.io.FileReader;
 import com.pinterest.secor.io.FileWriter;
 import com.pinterest.secor.io.KeyValue;
+import org.apache.commons.configuration.PropertiesConfiguration;
 import org.junit.Test;
 
 public class AvroFileReaderWriterFactoryTest {
     private AvroFileReaderWriterFactory mFactory;
 
     public void setUp() throws Exception {
-        mFactory = new AvroFileReaderWriterFactory();
+        PropertiesConfiguration properties = new PropertiesConfiguration();
+        SecorConfig secorConfig = new SecorConfig(properties);
+        mFactory = new AvroFileReaderWriterFactory(secorConfig);
     }
 
     final String JSON = "{\"integer1\": 1, \"long1\": 1000, \"string1\": \"thestring1\", \"timestamp\":\"2015-01-01 12:00:00\"}";
@@ -35,7 +39,6 @@ public class AvroFileReaderWriterFactoryTest {
 
     @Test
     public void testReadWriteRoundTrip() throws Exception {
-        AvroFileReaderWriterFactory factory = new AvroFileReaderWriterFactory();
         LogFilePath tempLogFilePath = new LogFilePath(Files.createTempDir().toString(),
                 "test",
                 new String[]{"part-1"},
@@ -44,7 +47,7 @@ public class AvroFileReaderWriterFactoryTest {
                 0,
                 ".avro"
         );
-        FileWriter fileWriter = factory.BuildFileWriter(tempLogFilePath, null);
+        FileWriter fileWriter = mFactory.BuildFileWriter(tempLogFilePath, null);
         KeyValue kv1 = (new KeyValue(23232, JSON.getBytes()));
         KeyValue kv2 = (new KeyValue(23233, JSON2.getBytes()));
         fileWriter.write(kv1);
@@ -60,7 +63,7 @@ public class AvroFileReaderWriterFactoryTest {
 //            System.out.println(user);
 //
 //        }
-        FileReader fileReader = factory.BuildFileReader(tempLogFilePath, null);
+        FileReader fileReader = mFactory.BuildFileReader(tempLogFilePath, null);
 
         KeyValue kvout = fileReader.next();
         System.out.println(new String(kvout.getValue()));
@@ -74,7 +77,6 @@ public class AvroFileReaderWriterFactoryTest {
 
     @Test
     public void testClassCastIssue() throws Exception {
-        AvroFileReaderWriterFactory factory = new AvroFileReaderWriterFactory();
         LogFilePath tempLogFilePath = new LogFilePath(Files.createTempDir().toString(),
                 "test",
                 new String[]{"part-1"},
@@ -83,7 +85,7 @@ public class AvroFileReaderWriterFactoryTest {
                 0,
                 ".avro"
         );
-        FileWriter fileWriter = factory.BuildFileWriter(tempLogFilePath, null);
+        FileWriter fileWriter = mFactory.BuildFileWriter(tempLogFilePath, null);
         KeyValue kv1 = (new KeyValue(23232, JSON.getBytes()));
         fileWriter.write(kv1);
         fileWriter.close();

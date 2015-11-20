@@ -19,6 +19,7 @@ package com.pinterest.secor.io.impl;
 import java.io.IOException;
 import java.util.Arrays;
 
+import com.pinterest.secor.common.SecorConfig;
 import com.pinterest.secor.io.FileReader;
 import com.pinterest.secor.io.FileReaderWriterFactory;
 import com.pinterest.secor.io.FileWriter;
@@ -39,7 +40,11 @@ import com.pinterest.secor.util.FileUtil;
  *
  * @author Praveen Murugesan (praveen@uber.com)
  */
-public class SequenceFileReaderWriterFactory implements FileReaderWriterFactory {
+public class SequenceFileReaderWriterFactory extends FileReaderWriterFactory {
+    public SequenceFileReaderWriterFactory(SecorConfig config) {
+        super(config);
+    }
+
     @Override
     public FileReader BuildFileReader(LogFilePath logFilePath, CompressionCodec codec) throws Exception {
         return new SequenceFileReader(logFilePath);

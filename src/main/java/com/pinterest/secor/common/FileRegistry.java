@@ -99,7 +99,7 @@ public class FileRegistry {
             if (!files.contains(path)) {
                 files.add(path);
             }
-            writer = ReflectionUtil.createFileWriter(mConfig.getFileReaderWriterFactory(), path, codec);
+            writer = ReflectionUtil.createFileWriter(mConfig.getFileReaderWriterFactory(), path, codec, mConfig);
             mWriters.put(path, writer);
             mCreationTimes.put(path, System.currentTimeMillis() / 1000L);
             LOG.debug("created writer for path {}", path.getLogFilePath());

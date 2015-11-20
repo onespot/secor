@@ -18,6 +18,7 @@ package com.pinterest.secor.io;
 
 
 import com.pinterest.secor.common.LogFilePath;
+import com.pinterest.secor.common.SecorConfig;
 import org.apache.hadoop.io.compress.CompressionCodec;
 
 import java.io.IOException;
@@ -31,7 +32,13 @@ import java.io.IOException;
  *
  * @author Silas Davis (github-code@silasdavis.net)
  */
-public interface FileReaderWriterFactory {
+public abstract class FileReaderWriterFactory {
+
+    protected SecorConfig mConfig;
+
+    public FileReaderWriterFactory(SecorConfig config) {
+        mConfig = config;
+    }
     /**
      * Build a FileReader instance to read from the target log file
      *
@@ -44,7 +51,7 @@ public interface FileReaderWriterFactory {
      * @throws InstantiationException
      */
 
-    public FileReader BuildFileReader(LogFilePath logFilePath, CompressionCodec codec) throws Exception;
+    public abstract FileReader BuildFileReader(LogFilePath logFilePath, CompressionCodec codec) throws Exception;
     /**
      * Build a FileWriter instance to write to the target log file
      *
@@ -53,5 +60,5 @@ public interface FileReaderWriterFactory {
      * @return a FileWriter instance to write to the target log file
      * @throws Exception
      */
-    public FileWriter BuildFileWriter(LogFilePath logFilePath, CompressionCodec codec) throws Exception;
+    public abstract FileWriter BuildFileWriter(LogFilePath logFilePath, CompressionCodec codec) throws Exception;
 }

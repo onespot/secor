@@ -2,6 +2,7 @@ package com.pinterest.secor.io.impl;
 
 import com.google.common.io.CountingOutputStream;
 import com.pinterest.secor.common.LogFilePath;
+import com.pinterest.secor.common.SecorConfig;
 import com.pinterest.secor.io.FileReader;
 import com.pinterest.secor.io.FileReaderWriterFactory;
 import com.pinterest.secor.io.FileWriter;
@@ -30,9 +31,15 @@ import java.util.Map;
 /**
  * Created by kirwin on 8/20/15.
  */
-public class AvroFileReaderWriterFactory implements FileReaderWriterFactory {
+public class AvroFileReaderWriterFactory extends FileReaderWriterFactory {
 
-    private SchemaReader schemaReader = new SchemaReader();
+    private final SchemaReader schemaReader;
+
+    public AvroFileReaderWriterFactory(SecorConfig config) {
+        super(config);
+        schemaReader = new SchemaReader(config.getString("secor.avro.schema.registry.host"),
+                config.getInt("secor.avro.schema.registry.port"));
+    }
 
     @Override
     public FileReader BuildFileReader(LogFilePath logFilePath, CompressionCodec codec) throws Exception {
@@ -141,10 +148,11 @@ public class AvroFileReaderWriterFactory implements FileReaderWriterFactory {
     }
 
     static class SchemaReader {
-        //TODO: get out of properties
-        private static final String REGISTRY_HOST="TODO";
-        private static final int REGISTRY_PORT=8081;
-        private final String schemaRegsitryUrl = "http://" + REGISTRY_HOST + ":" + REGISTRY_PORT;
+        private final String schemaRegsitryUrl;
+
+        public SchemaReader(String registryHost, int registryPort) {
+            schemaRegsitryUrl = "http://" + registryHost + ":" + registryPort;
+        }
 
         public final Schema getSchemaForTopic(String topic) throws IOException {
             //TODO: always use latest version?

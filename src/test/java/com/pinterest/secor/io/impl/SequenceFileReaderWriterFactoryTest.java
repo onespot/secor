@@ -30,12 +30,12 @@ public class SequenceFileReaderWriterFactoryTest {
     private SequenceFileReaderWriterFactory mFactory;
 
     public void setUp() throws Exception {
-        mFactory = new SequenceFileReaderWriterFactory();
+        mFactory = new SequenceFileReaderWriterFactory(null);
     }
 
     @Test
     public void testSequenceReadWriteRoundTrip() throws Exception {
-        SequenceFileReaderWriterFactory factory = new SequenceFileReaderWriterFactory();
+        SequenceFileReaderWriterFactory factory = new SequenceFileReaderWriterFactory(null);
         LogFilePath tempLogFilePath = new LogFilePath(Files.createTempDir().toString(),
                 "test-topic",
                 new String[]{"part-1"},

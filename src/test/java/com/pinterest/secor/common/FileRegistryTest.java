@@ -73,7 +73,8 @@ public class FileRegistryTest extends TestCase {
                 ReflectionUtil.createFileWriter(
                         Mockito.any(String.class),
                         Mockito.any(LogFilePath.class),
-                        Mockito.any(CompressionCodec.class)
+                        Mockito.any(CompressionCodec.class),
+                        Mockito.any(SecorConfig.class)
                 ))
                 .thenReturn(writer);
 
@@ -94,7 +95,8 @@ public class FileRegistryTest extends TestCase {
         PowerMockito.verifyStatic();
         ReflectionUtil.createFileWriter(Mockito.any(String.class),
                 Mockito.any(LogFilePath.class),
-                Mockito.any(CompressionCodec.class)
+                Mockito.any(CompressionCodec.class),
+                Mockito.any(SecorConfig.class)
         );
 
         PowerMockito.verifyStatic();
@@ -123,7 +125,8 @@ public class FileRegistryTest extends TestCase {
                 ReflectionUtil.createFileWriter(
                         Mockito.any(String.class),
                         Mockito.any(LogFilePath.class),
-                        Mockito.any(CompressionCodec.class)
+                        Mockito.any(CompressionCodec.class),
+                        Mockito.any(SecorConfig.class)
                 ))
                 .thenReturn(writer);
 
@@ -148,7 +151,8 @@ public class FileRegistryTest extends TestCase {
         PowerMockito.verifyStatic();
         ReflectionUtil.createFileWriter(Mockito.any(String.class),
                 Mockito.any(LogFilePath.class),
-                Mockito.any(CompressionCodec.class)
+                Mockito.any(CompressionCodec.class),
+                Mockito.any(SecorConfig.class)
         );
 
         TopicPartition topicPartition = new TopicPartition("some_topic", 0);

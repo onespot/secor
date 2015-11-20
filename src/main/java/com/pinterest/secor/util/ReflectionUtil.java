@@ -94,15 +94,16 @@ public class ReflectionUtil {
      * @return a FileReaderWriterFactory with the runtime type of the class passed by name
      * @throws Exception
      */
-    private static FileReaderWriterFactory createFileReaderWriterFactory(String className) throws Exception {
+    private static FileReaderWriterFactory createFileReaderWriterFactory(String className,
+                                                                         SecorConfig config) throws Exception {
         Class<?> clazz = Class.forName(className);
         if (!FileReaderWriterFactory.class.isAssignableFrom(clazz)) {
             throw new IllegalArgumentException(String.format("The class '%s' is not assignable to '%s'.",
                     className, FileReaderWriterFactory.class.getName()));
         }
 
-        // We assume a parameterless constructor
-        return (FileReaderWriterFactory) clazz.newInstance();
+        // Assume that subclass of FileReaderWriterFactory has a constructor with the same signature
+        return (FileReaderWriterFactory) clazz.getConstructor(SecorConfig.class).newInstance(config);
     }
 
     /**
@@ -115,9 +116,9 @@ public class ReflectionUtil {
      * @throws Exception
      */
     public static FileWriter createFileWriter(String className, LogFilePath logFilePath,
-                                              CompressionCodec codec)
+                                              CompressionCodec codec, SecorConfig config)
             throws Exception {
-        return createFileReaderWriterFactory(className).BuildFileWriter(logFilePath, codec);
+        return createFileReaderWriterFactory(className, config).BuildFileWriter(logFilePath, codec);
     }
 
     /**
@@ -130,8 +131,8 @@ public class ReflectionUtil {
      * @throws Exception
      */
     public static FileReader createFileReader(String className, LogFilePath logFilePath,
-                                              CompressionCodec codec)
+                                              CompressionCodec codec, SecorConfig config)
             throws Exception {
-        return createFileReaderWriterFactory(className).BuildFileReader(logFilePath, codec);
+        return createFileReaderWriterFactory(className, config).BuildFileReader(logFilePath, codec);
     }
 }

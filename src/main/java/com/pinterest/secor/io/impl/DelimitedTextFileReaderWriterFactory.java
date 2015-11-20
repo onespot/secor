@@ -23,6 +23,7 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 
+import com.pinterest.secor.common.SecorConfig;
 import com.pinterest.secor.io.FileReader;
 import com.pinterest.secor.io.FileReaderWriterFactory;
 import com.pinterest.secor.io.FileWriter;
@@ -43,8 +44,12 @@ import com.pinterest.secor.util.FileUtil;
  *
  * @author Praveen Murugesan (praveen@uber.com)
  */
-public class DelimitedTextFileReaderWriterFactory implements FileReaderWriterFactory {
+public class DelimitedTextFileReaderWriterFactory extends FileReaderWriterFactory {
     private static final byte DELIMITER = '\n';
+
+    public DelimitedTextFileReaderWriterFactory(SecorConfig config) {
+        super(config);
+    }
 
     @Override
     public FileReader BuildFileReader(LogFilePath logFilePath, CompressionCodec codec)

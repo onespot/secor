@@ -113,7 +113,8 @@ public class Uploader {
         return ReflectionUtil.createFileReader(
                 mConfig.getFileReaderWriterFactory(),
                 srcPath,
-                codec
+                codec,
+                mConfig
         );
     }
 

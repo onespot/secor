@@ -46,7 +46,7 @@ public class ReflectionUtilTest {
 
     @Test(expected = ClassNotFoundException.class)
     public void testFileWriterClassNotFound() throws Exception {
-        ReflectionUtil.createFileWriter("com.example.foo", mLogFilePath, null);
+        ReflectionUtil.createFileWriter("com.example.foo", mLogFilePath, null, mSecorConfig);
     }
 
     @Test(expected = IllegalArgumentException.class)
@@ -62,6 +62,6 @@ public class ReflectionUtilTest {
         // Try to create a message parser using an existent and available class, but one not
         // assignable to MessageParser
         ReflectionUtil.createFileWriter("java.lang.Object",
-                mLogFilePath, null);
+                mLogFilePath, null, mSecorConfig);
     }
 }
