@@ -142,7 +142,7 @@ public class AvroFileReaderWriterFactory implements FileReaderWriterFactory {
 
     static class SchemaReader {
         //TODO: get out of properties
-        private static final String REGISTRY_HOST="ec2-54-226-76-157.compute-1.amazonaws.com";
+        private static final String REGISTRY_HOST="TODO";
         private static final int REGISTRY_PORT=8081;
         private final String schemaRegsitryUrl = "http://" + REGISTRY_HOST + ":" + REGISTRY_PORT;
 
