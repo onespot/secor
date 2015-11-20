@@ -37,8 +37,7 @@ public class AvroFileReaderWriterFactory extends FileReaderWriterFactory {
 
     public AvroFileReaderWriterFactory(SecorConfig config) {
         super(config);
-        schemaReader = new SchemaReader(config.getString("secor.avro.schema.registry.host"),
-                config.getInt("secor.avro.schema.registry.port"));
+        schemaReader = new SchemaReader(config);
     }
 
     @Override
@@ -149,18 +148,35 @@ public class AvroFileReaderWriterFactory extends FileReaderWriterFactory {
 
     static class SchemaReader {
         private final String schemaRegsitryUrl;
+        private final boolean useFileReader;
 
-        public SchemaReader(String registryHost, int registryPort) {
-            schemaRegsitryUrl = "http://" + registryHost + ":" + registryPort;
+        public SchemaReader(SecorConfig config) {
+            useFileReader = config.getBoolean("secor.avro.reader.file", true);
+            if (!useFileReader) {
+                int registryPort = config.getInt("secor.avro.schema.registry.port");
+                String registryHost = config.getString("secor.avro.schema.registry.host");
+                schemaRegsitryUrl = "http://" + registryHost + ":" + registryPort;
+            } else {
+                schemaRegsitryUrl = null;
+            }
         }
 
         public final Schema getSchemaForTopic(String topic) throws IOException {
-            //TODO: always use latest version?
-            String topicPath = "/subjects/" + topic + "/versions/latest";
-            return new Schema.Parser().parse(getSchemaFromSchemaRegistry(topicPath));
+            if (useFileReader) {
+                return getSchemaFromFile(topic);
+            } else {
+                String topicPath = "/subjects/" + topic + "/versions/latest";
+                return getSchemaFromSchemaRegistry(topicPath);
+            }
         }
 
-        private String getSchemaFromSchemaRegistry(String topicPath) throws IOException {
+        private Schema getSchemaFromFile(String topic) throws IOException {
+            String filename = "/" + topic + ".avsc";
+            InputStream schemaIn = AvroFileReaderWriterFactory.class.getResourceAsStream(filename);
+            return new Schema.Parser().parse(schemaIn);
+        }
+
+        private Schema getSchemaFromSchemaRegistry(String topicPath) throws IOException {
             HttpURLConnection connection = null;
             try {
                 URL url = new URL(schemaRegsitryUrl + topicPath);
@@ -172,7 +188,7 @@ public class AvroFileReaderWriterFactory extends FileReaderWriterFactory {
                 BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
                 Map response = (Map) JSONValue.parse(reader);
                 if (response.containsKey("schema")) {
-                    return response.get("schema").toString();
+                    return new Schema.Parser().parse(response.get("schema").toString());
                 } else {
                     throw new RuntimeException("No schema found");
                 }
