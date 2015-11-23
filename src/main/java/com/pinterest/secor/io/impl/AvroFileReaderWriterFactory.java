@@ -8,19 +8,17 @@ import com.pinterest.secor.io.FileWriter;
 import com.pinterest.secor.io.KeyValue;
 import net.minidev.json.JSONObject;
 import net.minidev.json.JSONValue;
-import org.apache.avro.AvroTypeException;
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileReader;
 import org.apache.avro.file.DataFileWriter;
-import org.apache.avro.generic.GenericData;
-import org.apache.avro.generic.GenericDatumReader;
-import org.apache.avro.generic.GenericDatumWriter;
-import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.generic.*;
 import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.Encoder;
 import org.apache.hadoop.io.compress.CompressionCodec;
 
 import java.io.*;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -31,22 +29,30 @@ import java.util.Map;
  */
 public class AvroFileReaderWriterFactory implements FileReaderWriterFactory {
 
+    public static final String SCHEMA_REGISTRY_HOST_PROPERTY = "com.onespot.secor.schema.registryHost";
+    public static final String SCHEMA_REGISTRY_PORT_PROPERTY = "com.onespot.secor.schema.registryPort";
+    public static final String DEFAULT_SCHEMA_REGISTRY_PORT = "8081";
+
+    private final SchemaLoader schemaLoader;
+
+    public AvroFileReaderWriterFactory() {
+        this(createSchemaLoader());
+    }
+
+    public AvroFileReaderWriterFactory(SchemaLoader schemaLoader) {
+        this.schemaLoader = schemaLoader;
+    }
+
     @Override
     public FileReader BuildFileReader(LogFilePath logFilePath, CompressionCodec codec) throws Exception {
-        Schema schema = getSchemaForTopic(logFilePath.getTopic());
+        Schema schema = schemaLoader.getSchemaForTopic(logFilePath.getTopic());
         return new AvroReader(schema, Paths.get(logFilePath.getLogFilePath()));
     }
 
     @Override
     public FileWriter BuildFileWriter(LogFilePath logFilePath, CompressionCodec codec) throws Exception {
-        Schema schema = getSchemaForTopic(logFilePath.getTopic());
-        return new AvroWriter(schema, Paths.get(logFilePath.getLogFilePath()));
-    }
-
-    private static final Schema getSchemaForTopic(String topic) throws IOException {
-        String filename = "/" + topic + ".avsc";
-        InputStream schemaIn = AvroFileReaderWriterFactory.class.getResourceAsStream(filename);
-        return new Schema.Parser().parse(schemaIn);
+        Schema schema = schemaLoader.getSchemaForTopic(logFilePath.getTopic());
+        return new AvroWriter(schema, Paths.get(logFilePath.getLogFilePath()), new FromJsonExtractor());
     }
 
     private static class AvroReader implements FileReader {
@@ -54,8 +60,8 @@ public class AvroFileReaderWriterFactory implements FileReaderWriterFactory {
         GenericRecord record = null;
 
         public AvroReader(Schema schema, Path path) throws IOException {
-            DatumReader<GenericRecord> datumReader = new GenericDatumReader<GenericRecord>(schema);
-            dataFileReader = new DataFileReader<GenericRecord>(path.toFile(), datumReader);
+            DatumReader<GenericRecord> datumReader = new GenericDatumReader<>(schema);
+            dataFileReader = new DataFileReader<>(path.toFile(), datumReader);
         }
 
         @Override
@@ -76,10 +82,12 @@ public class AvroFileReaderWriterFactory implements FileReaderWriterFactory {
     private static class AvroWriter implements FileWriter {
         private final CountingOutputStream meteredOut;
         DataFileWriter<GenericRecord> dataFileWriter;
-        private Schema schema;
+        private final Schema schema;
+        private final MessageExtractor extractor;
 
-        AvroWriter(Schema schema, Path file) throws IOException {
+        AvroWriter(Schema schema, Path file, MessageExtractor extractor) throws IOException {
             this.schema = schema;
+            this.extractor = extractor;
             /**
              * We override the write method of the GenericDatumWriter as it doesnt support casting of ints to longs
              * for some reason
@@ -111,7 +119,7 @@ public class AvroFileReaderWriterFactory implements FileReaderWriterFactory {
             Files.createDirectories(file.getParent());
             final OutputStream out = Files.newOutputStream(file);
             meteredOut = new CountingOutputStream(out);
-            dataFileWriter = new DataFileWriter<GenericRecord>(datumWriter);
+            dataFileWriter = new DataFileWriter<>(datumWriter);
             dataFileWriter.create(schema, meteredOut);
         }
 
@@ -122,19 +130,10 @@ public class AvroFileReaderWriterFactory implements FileReaderWriterFactory {
 
         @Override
         public void write(KeyValue keyValue) throws IOException {
-            JSONObject jsonObject = (JSONObject) JSONValue.parse(keyValue.getValue());
-            if (jsonObject != null) {
-                final GenericRecord datum = convertJsonToRecord(jsonObject);
+            final GenericRecord datum = extractor.extract(keyValue.getValue(), schema);
+            if (datum != null) {
                 dataFileWriter.append(datum);
             }
-        }
-
-        private GenericRecord convertJsonToRecord(JSONObject jsonObject) {
-            GenericRecord record = new GenericData.Record(schema);
-            for (Map.Entry<String, Object> entry : jsonObject.entrySet()) {
-                record.put(entry.getKey(), entry.getValue());
-            }
-            return record;
         }
 
         @Override
@@ -142,4 +141,93 @@ public class AvroFileReaderWriterFactory implements FileReaderWriterFactory {
             dataFileWriter.close();
         }
     }
+
+    public interface SchemaLoader {
+        Schema getSchemaForTopic(String topic) throws IOException;
+    }
+
+    private static class ClasspathSchemaLoader implements SchemaLoader {
+        @Override
+        public Schema getSchemaForTopic(String topic) throws IOException {
+            String filename = "/" + topic + ".avsc";
+            InputStream schemaIn = AvroFileReaderWriterFactory.class.getResourceAsStream(filename);
+            return new Schema.Parser().parse(schemaIn);
+        }
+    }
+
+    static class RegistrySchemaLoader implements SchemaLoader {
+
+        private final String registryHost;
+        private final int registryPort;
+
+        RegistrySchemaLoader(String registryHost, int registryPort) {
+            this.registryHost = registryHost;
+            this.registryPort = registryPort;
+        }
+
+        @Override
+        public Schema getSchemaForTopic(String topic) throws IOException {
+            // We always should be using the latest schema as all pending
+            // messages in Kafka can be converted to this version.
+            URL schemaURL = new URL("http", registryHost, registryPort, "/subjects/" + topic + "/versions/latest");
+            HttpURLConnection connection = (HttpURLConnection) schemaURL.openConnection();
+            try {
+                connection.setRequestProperty("Content-Type", "application/vnd.schemaregistry.v1+json");
+                connection.setRequestProperty("Accept", "*/*");
+                JSONObject response = (JSONObject) JSONValue.parse(connection.getInputStream());
+                if (!response.containsKey("schema")) {
+                    throw new RuntimeException("No schema found in response");
+                }
+
+                return new Schema.Parser().parse(response.get("schema").toString());
+            }
+            finally {
+                connection.disconnect();
+            }
+        }
+    }
+
+    private static SchemaLoader createSchemaLoader() {
+        String registryHost = System.getProperty(SCHEMA_REGISTRY_HOST_PROPERTY);
+        if (registryHost != null) {
+            String registryPort = System.getProperty(SCHEMA_REGISTRY_PORT_PROPERTY, DEFAULT_SCHEMA_REGISTRY_PORT);
+            try {
+                return new RegistrySchemaLoader(registryHost, Integer.parseInt(registryPort));
+            }
+            catch (NumberFormatException e) {
+                throw new RuntimeException("Invalid port provided for schema registry", e);
+            }
+        }
+
+        return new ClasspathSchemaLoader();
+    }
+
+    public interface MessageExtractor {
+        GenericRecord extract(byte[] message, Schema storageSchema);
+    }
+
+    private static class FromJsonExtractor implements MessageExtractor {
+
+        @Override
+        public GenericRecord extract(final byte[] message, final Schema storageSchema) {
+            final JSONObject jsonObject = (JSONObject) JSONValue.parse(message);
+            if (jsonObject != null) {
+                return convertJsonToRecord(jsonObject, storageSchema);
+            }
+            return null;
+        }
+
+        // We are writing using the latest schema, but during switchover, there may be messages
+        // in the topic written w/o new required fields.  Therefore, need to ensure
+        // we populate missing fields w/ defaults.  Do so by using the GenericRecordBuilder.
+
+        private GenericRecord convertJsonToRecord(final JSONObject jsonObject, final Schema schema) {
+            GenericRecordBuilder record = new GenericRecordBuilder(schema);
+            for (Map.Entry<String, Object> entry : jsonObject.entrySet()) {
+                record.set(entry.getKey(), entry.getValue());
+            }
+            return record.build();
+        }
+    }
+
 }
