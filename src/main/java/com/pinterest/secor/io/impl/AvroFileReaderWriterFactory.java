@@ -23,6 +23,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
+import java.util.function.Function;
 
 /**
  * Created by kirwin on 8/20/15.
@@ -45,14 +46,23 @@ public class AvroFileReaderWriterFactory implements FileReaderWriterFactory {
 
     @Override
     public FileReader BuildFileReader(LogFilePath logFilePath, CompressionCodec codec) throws Exception {
-        Schema schema = schemaLoader.getSchemaForTopic(logFilePath.getTopic());
+        Schema schema = getTopicSchema(logFilePath.getTopic());
         return new AvroReader(schema, Paths.get(logFilePath.getLogFilePath()));
     }
 
     @Override
     public FileWriter BuildFileWriter(LogFilePath logFilePath, CompressionCodec codec) throws Exception {
-        Schema schema = schemaLoader.getSchemaForTopic(logFilePath.getTopic());
+        Schema schema = getTopicSchema(logFilePath.getTopic());
         return new AvroWriter(schema, Paths.get(logFilePath.getLogFilePath()), new FromJsonExtractor());
+    }
+
+    private Schema getTopicSchema(String topic) throws Exception {
+        try {
+            return schemaLoader.getSchemaForTopic(topic);
+        }
+        catch (Exception e) {
+            throw new Exception("Failed to get schema for topic " + topic, e);
+        }
     }
 
     private static class AvroReader implements FileReader {
@@ -143,7 +153,7 @@ public class AvroFileReaderWriterFactory implements FileReaderWriterFactory {
     }
 
     public interface SchemaLoader {
-        Schema getSchemaForTopic(String topic) throws IOException;
+        Schema getSchemaForTopic(String topic) throws Exception;
     }
 
     private static class ClasspathSchemaLoader implements SchemaLoader {
@@ -169,21 +179,30 @@ public class AvroFileReaderWriterFactory implements FileReaderWriterFactory {
         public Schema getSchemaForTopic(String topic) throws IOException {
             // We always should be using the latest schema as all pending
             // messages in Kafka can be converted to this version.
-            URL schemaURL = new URL("http", registryHost, registryPort, "/subjects/" + topic + "/versions/latest");
-            HttpURLConnection connection = (HttpURLConnection) schemaURL.openConnection();
-            try {
-                connection.setRequestProperty("Content-Type", "application/vnd.schemaregistry.v1+json");
-                connection.setRequestProperty("Accept", "*/*");
-                JSONObject response = (JSONObject) JSONValue.parse(connection.getInputStream());
-                if (!response.containsKey("schema")) {
-                    throw new RuntimeException("No schema found in response");
-                }
-
-                return new Schema.Parser().parse(response.get("schema").toString());
+            HttpURLConnection connection = buildRegistryRequest("/subjects/" + topic + "/versions/latest");
+            try (InputStream in = connection.getInputStream()) {
+                return ((Function<InputStream, Schema>) this::extractSchemaFromResponse).apply(in);
             }
             finally {
                 connection.disconnect();
             }
+        }
+
+        private HttpURLConnection buildRegistryRequest(String requestPath) throws IOException {
+            URL requestUrl = new URL("http", registryHost, registryPort, requestPath);
+            HttpURLConnection connection = (HttpURLConnection) requestUrl.openConnection();
+            connection.setRequestProperty("Content-Type", "application/vnd.schemaregistry.v1+json");
+            connection.setRequestProperty("Accept", "*/*");
+            return connection;
+        }
+
+        private Schema extractSchemaFromResponse(InputStream in) {
+            JSONObject response = (JSONObject) JSONValue.parse(new BufferedInputStream(in));
+            if (!response.containsKey("schema")) {
+                throw new RuntimeException("No schema found in response");
+            }
+
+            return new Schema.Parser().parse(response.get("schema").toString());
         }
     }
 
