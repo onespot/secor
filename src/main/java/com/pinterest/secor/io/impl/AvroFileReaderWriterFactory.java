@@ -53,7 +53,7 @@ public class AvroFileReaderWriterFactory implements FileReaderWriterFactory {
 
     public Schema getSchemaForTopic(String topic) throws IOException, RestClientException {
         return extractSchemaFromResponse(schemaRegistryClient
-                .getLatestSchemaMetadata(topic).getSchema());
+                .getLatestSchemaMetadata(topic + "-value").getSchema());
     }
 
     private Schema extractSchemaFromResponse(String schema) {
