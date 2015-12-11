@@ -8,7 +8,7 @@ import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
  */
 public class SchemaRegistryUtil {
     public static final String SCHEMA_REGISTRY_URL_PROPERTY = "com.onespot.secor.schema.registryUrl";
-    private static SchemaRegistryClient schemaRegistryClient;
+    private static volatile SchemaRegistryClient schemaRegistryClient;
 
     public static synchronized SchemaRegistryClient getSchemaRegistryClient() {
         if (schemaRegistryClient == null) {
