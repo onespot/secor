@@ -145,7 +145,9 @@ public class AvroFileReaderWriterFactory implements FileReaderWriterFactory {
 
         private GenericRecord convertToRecord(final GenericRecord toConvert, final Schema schema) {
             GenericRecordBuilder record = new GenericRecordBuilder(schema);
-            for (Schema.Field field : schema.getFields()) {
+
+            // Copy all fields known to the source; builder will default the unset ones.
+            for (Schema.Field field : toConvert.getSchema().getFields()) {
                 record.set(field.name(), toConvert.get(field.name()));
             }
             return record.build();
@@ -155,5 +157,6 @@ public class AvroFileReaderWriterFactory implements FileReaderWriterFactory {
         public void close() throws IOException {
             dataFileWriter.close();
         }
+
     }
 }
