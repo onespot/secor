@@ -23,12 +23,13 @@ import static junit.framework.TestCase.assertEquals;
  */
 public class AvroMessageParserTest {
 
+    private SecorConfig config;
     private Schema schema;
     private AvroMessageParser parser;
 
     @Before
     public void setup() throws IOException, RestClientException {
-        SecorConfig config = Mockito.mock(SecorConfig.class);
+        config = Mockito.mock(SecorConfig.class);
         Mockito.when(config.getMessageTimestampName()).thenReturn("timestamp");
 
         SchemaRegistryClient client = Mockito.mock(SchemaRegistryClient.class);
@@ -44,7 +45,23 @@ public class AvroMessageParserTest {
     }
 
     @Test
-    public void testExtractTimestampMillis() throws Exception {
+    public void testExtractTimestampMillisAsMillis() throws Exception {
+        Mockito.when(config.getMessageTimestampName()).thenReturn("long1");
+        KafkaAvroEncoder encoder = new KafkaAvroEncoder(SchemaRegistryUtil.getSchemaRegistryClient());
+        GenericRecord record = new GenericData.Record(schema);
+        long expectedTimestamp = 1448964000000L;
+        record.put("timestamp", "1970-01-01T00:00:00Z");
+        record.put("integer1", 1);
+        record.put("long1", expectedTimestamp);
+        record.put("string1", "s");
+
+        byte[] payload = encoder.toBytes(record);
+        Message message = new Message("test", 1, 0, payload);
+        assertEquals(expectedTimestamp, parser.extractTimestampMillis(message));
+    }
+
+    @Test
+    public void testExtractTimestampMillisAsDate() throws Exception {
         KafkaAvroEncoder encoder = new KafkaAvroEncoder(SchemaRegistryUtil.getSchemaRegistryClient());
         GenericRecord record = new GenericData.Record(schema);
         record.put("timestamp", "2015-12-01T10:00:00Z");

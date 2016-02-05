@@ -45,6 +45,10 @@ public class AvroMessageParser extends TimestampedMessageParser {
             GenericRecord record = (GenericRecord) decoder.fromBytes(message.getPayload());
             if (record != null) {
                 Object fieldValue = record.get(mConfig.getMessageTimestampName());
+                if (fieldValue instanceof Long) {
+                    // Assume already millis so can return as-is
+                    return (Long)fieldValue;
+                }
                 return Instant.parse(fieldValue.toString()).toEpochMilli();
             }
         }
