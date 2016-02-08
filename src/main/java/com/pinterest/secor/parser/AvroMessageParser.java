@@ -18,10 +18,12 @@ package com.pinterest.secor.parser;
 
 import com.pinterest.secor.common.SecorConfig;
 import com.pinterest.secor.message.Message;
+import com.pinterest.secor.message.ParsedMessage;
 import com.pinterest.secor.util.SchemaRegistryUtil;
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
 import io.confluent.kafka.serializers.KafkaAvroDecoder;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.kafka.common.errors.SerializationException;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -32,11 +34,41 @@ import java.time.Instant;
  */
 public class AvroMessageParser extends TimestampedMessageParser {
 
+    private static final int SCHEMA_NOT_FOUND = 40403;
+    private static final boolean ignoreMissingSchema = Boolean.getBoolean("parser.ignore.missingSchemas");
+
     private final KafkaAvroDecoder decoder;
 
     public AvroMessageParser(SecorConfig config) {
         super(config);
         decoder = new KafkaAvroDecoder(SchemaRegistryUtil.getSchemaRegistryClient());
+    }
+
+    @Override
+    public ParsedMessage parse(Message message) throws Exception {
+        try {
+            return super.parse(message);
+        }
+        catch (SerializationException e) {
+            if (ignoreParseError(e)) {
+                return null;
+            }
+            throw e;
+        }
+    }
+
+    private static final boolean ignoreParseError(SerializationException e) {
+        Throwable rootCause = e.getCause();
+        if (rootCause instanceof RestClientException) {
+            RestClientException cause = (RestClientException)rootCause;
+            if (ignoreMissingSchema && cause.getErrorCode() == SCHEMA_NOT_FOUND) {
+                // If we couldn't find the schema, it is unlikely we'll ever be
+                // able to successfully decode this message.
+                // Just discard so we can't get stuck on the message.
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
