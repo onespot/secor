@@ -137,18 +137,21 @@ public class AvroFileReaderWriterFactory implements FileReaderWriterFactory {
         @Override
         public void write(KeyValue keyValue) throws IOException {
             GenericRecord toConvert = (GenericRecord) decoder.fromBytes(keyValue.getValue());
-            final GenericRecord datum = convertToRecord(toConvert, schema);
+            final GenericRecord datum = convertToRecord(toConvert);
             if (datum != null) {
                 dataFileWriter.append(datum);
             }
         }
 
-        private GenericRecord convertToRecord(final GenericRecord toConvert, final Schema schema) {
+        private GenericRecord convertToRecord(final GenericRecord toConvert) {
             GenericRecordBuilder record = new GenericRecordBuilder(schema);
 
-            // Copy all fields known to the source; builder will default the unset ones.
-            for (Schema.Field field : toConvert.getSchema().getFields()) {
-                record.set(field.name(), toConvert.get(field.name()));
+            // Copy all fields known to the target, ignoring unknown fields
+            // This allows them to set the default.
+            for (final Schema.Field field : schema.getFields()) {
+                if (toConvert.getSchema().getField(field.name()) != null) {
+                    record.set(field.name(), toConvert.get(field.name()));
+                }
             }
             return record.build();
         }
